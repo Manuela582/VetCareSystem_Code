@@ -1,3 +1,7 @@
+/*
+ * Escenario 1 y 2 — Cuando el API responde con error, aquí se traduce el mensaje.
+ * 401 → "inicie sesión" (Esc.1). 403 → "no tiene permiso" (Esc.2 o ver mascota ajena).
+ */
 const HTTP_MESSAGES: Record<number, string> = {
   400: 'Solicitud incorrecta. Revisa los datos ingresados.',
   401: 'No autorizado. Inicia sesión de nuevo.',

@@ -16,6 +16,10 @@ type ViewMode = 'timeline' | 'table';
 export function ClinicalHistoryPage() {
   const { id: petId } = useParams<{ id: string }>();
   const { hasRole } = useAuth();
+  /*
+   * Escenario 2 (pantalla) — Oculta botones "nueva consulta" / editar si es dueño.
+   * canEdit false = no muestra acciones de modificación (solo lectura para dueño).
+   */
   const canEdit = hasRole('VETERINARIO', 'ADMIN');
 
   const [pet, setPet] = useState<Pet | null>(null);

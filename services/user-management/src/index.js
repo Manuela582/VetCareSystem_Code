@@ -23,6 +23,21 @@ const systemLogs = [];
 const systemErrors = [];
 
 const OWNER_DEMO_ID = '00000000-0000-4000-8000-000000000003';
+
+/*
+ * ESCENARIO 1 — Acceso controlado a información clínica (PDF §3.1)
+ * Situación: alguien sin permiso intenta ver el historial.
+ * Respuesta esperada: bloquear y pedir que inicie sesión.
+ *
+ * Dónde se cumple EN ESTE ARCHIVO (servicio user-management):
+ *   · POST /auth/login ............... validar correo y contraseña
+ *   · buildAuthResponse .............. crear la sesión del usuario (con su rol)
+ *   · authMiddleware ................. rechazar quien no trae sesión válida
+ *
+ * También participan (mismo escenario):
+ *   · services/clinical-history .... ver historial sin permiso o sin sesión
+ *   · frontend ProtectedRoute ........ redirige a la pantalla de login
+ */
 const MAX_LOG_ENTRIES = 200;
 
 function pushLog(level, message, meta = {}) {
@@ -129,13 +144,16 @@ function assertUserCanAuthenticate(user, res) {
   return true;
 }
 
+// Escenario 1 — después de un login correcto, aquí se arma la "sesión" del usuario.
 function buildAuthResponse(user) {
+  // Paso 1: firmar un token que guarda id, correo y rol (dueño / veterinario / admin).
   const token = jwt.sign(
     { sub: user.id, email: user.email, role: user.role },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN },
   );
   const decoded = jwt.decode(token);
+  // Paso 2: devolver el token al frontend; con él podrá pedir historial y demás datos.
   return {
     token,
     user: toPublicUser(user),
@@ -143,8 +161,14 @@ function buildAuthResponse(user) {
   };
 }
 
+/*
+ * Escenario 1 — Esta función se ejecuta ANTES de rutas protegidas de este servicio.
+ * Orden: 1) ¿trajo sesión? 2) ¿sesión válida? 3) si todo bien, deja pasar (next).
+ */
 function authMiddleware(req, res, next) {
   const header = req.headers.authorization;
+
+  // BLOQUEO: no envió sesión → respuesta pide autenticación (equivalente a "inicie sesión").
   if (!header?.startsWith('Bearer ')) {
     return res.status(401).json({
       message: 'Token de autenticación requerido',
@@ -154,28 +178,37 @@ function authMiddleware(req, res, next) {
 
   try {
     const payload = jwt.verify(header.slice(7), JWT_SECRET);
+
+    // BLOQUEO: token con usuario que ya no existe.
     const user = findUserById(payload.sub);
     if (!user) {
       return res.status(401).json({ message: 'Sesión inválida', code: 'TOKEN_INVALID' });
     }
     ensureUserFlags(user);
     const issuedAtMs = (payload.iat || 0) * 1000;
+
+    // BLOQUEO: admin cerró la sesión → debe volver a iniciar sesión.
     if (user.sessionInvalidBefore && issuedAtMs < user.sessionInvalidBefore) {
       return res.status(401).json({
         message: 'Tu sesión fue cerrada por el administrador. Inicia sesión de nuevo.',
         code: 'SESSION_REVOKED',
       });
     }
+
+    // BLOQUEO: cuenta bloqueada o inactiva (ya no puede usar el sistema).
     if (user.blocked || !user.active) {
       return res.status(403).json({
         message: 'Tu cuenta no está disponible',
         code: user.blocked ? 'ACCOUNT_BLOCKED' : 'ACCOUNT_INACTIVE',
       });
     }
+
+    // PERMITIDO: guardamos quién es y su rol para el resto de la petición.
     req.userId = payload.sub;
     req.userRole = payload.role;
     next();
   } catch (err) {
+    // BLOQUEO: sesión vencida o token corrupto → pedir login de nuevo.
     if (err.name === 'TokenExpiredError') {
       return res.status(401).json({
         message: 'Tu sesión ha expirado. Inicia sesión de nuevo.',
@@ -211,14 +244,22 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: SERVICE_NAME, version: '0.3.0' });
 });
 
+/*
+ * Escenario 1 — Punto de entrada: pantalla de login.
+ * Aquí se valida quién es el usuario; si falla, no obtiene sesión.
+ */
 app.post(`${API_PREFIX}/auth/login`, (req, res) => {
   const { email, password } = req.body || {};
+
+  // BLOQUEO: faltan datos del formulario.
   if (!email || !password) {
     return res.status(400).json({ message: 'Email y contraseña son obligatorios' });
   }
 
   const normalizedEmail = String(email).toLowerCase();
   const user = usersByEmail.get(normalizedEmail);
+
+  // BLOQUEO: correo no registrado o contraseña incorrecta (sigue sin poder ver historial).
   if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
     failedLoginAttempts.unshift({
       id: randomUUID(),
@@ -234,8 +275,10 @@ app.post(`${API_PREFIX}/auth/login`, (req, res) => {
     });
   }
 
+  // BLOQUEO: usuario existe pero cuenta bloqueada/inactiva (assertUserCanAuthenticate).
   if (!assertUserCanAuthenticate(user, res)) return;
 
+  // PERMITIDO: credenciales correctas → buildAuthResponse entrega la sesión (token + rol).
   pushLog('info', `Login exitoso: ${user.email}`, { userId: user.id, role: user.role });
   return res.json(buildAuthResponse(user));
 });
@@ -327,6 +370,10 @@ const MICROSERVICES = [
   { id: 'notification-service', name: 'Notificaciones', port: 3006, path: '/health' },
 ];
 
+/*
+ * Escenario 3 (parte visible en demo) — Detectar si storage-service (u otro) está caído.
+ * No activa backup automático; solo informa "down" al panel admin (aislamiento de fallos).
+ */
 async function checkServiceHealth(svc) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 2000);
@@ -335,6 +382,7 @@ async function checkServiceHealth(svc) {
       signal: controller.signal,
     });
     clearTimeout(timer);
+    // DETECCIÓN Esc.3: si storage no responde, queda marcado "down" (no tumba user-management).
     if (!res.ok) return { ...svc, status: 'down', version: null };
     const data = await res.json();
     return { ...svc, status: 'ok', version: data.version || null };
@@ -384,6 +432,7 @@ app.get(`${API_PREFIX}/admin/dashboard`, authMiddleware, requireRoles('ADMIN'), 
 
   const clinical = await fetchClinicalStats(req.headers.authorization);
   const reminders = await fetchRemindersCount(req.headers.authorization);
+  // Escenario 3 — lista estado de cada microservicio (incluido storage-service en puerto 3004).
   const services = await Promise.all(MICROSERVICES.map(checkServiceHealth));
 
   return res.json({

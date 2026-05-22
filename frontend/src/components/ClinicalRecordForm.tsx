@@ -37,6 +37,7 @@ export function ClinicalRecordForm({
     setStatus(initial.status);
   }, [initial]);
 
+  // Escenario 4 — Recoge datos del formulario y los pasa a guardar (onSubmit → API).
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
@@ -57,6 +58,7 @@ export function ClinicalRecordForm({
         status,
       });
     } catch (err) {
+      // Esc.4: si el API rechaza datos (400) o falla, el veterinario ve el error aquí.
       setError(err instanceof Error ? err.message : 'Error al guardar');
     } finally {
       setLoading(false);
