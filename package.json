@@ -1,0 +1,22 @@
+{
+  "name": "vetcare-system",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sistema de Gestión Clínica Veterinaria — monorepo de microservicios",
+  "scripts": {
+    "install:auth": "npm install --prefix services/user-management && npm install --prefix services/clinical-history && npm install --prefix services/tracking-reminders && npm install --prefix services/storage-service && npm install --prefix services/query-visualization && npm install --prefix services/notification-service && npm install --prefix frontend",
+    "install:all": "npm run install:auth && npm install --prefix services/clinical-history && npm install --prefix services/tracking-reminders && npm install --prefix services/storage-service && npm install --prefix services/query-visualization && npm install --prefix services/notification-service",
+    "dev": "concurrently --kill-others-on-fail -n api,pets,rem,storage,query,notif,web -c cyan,blue,yellow,gray,magenta,red,green \"npm run dev:user-management\" \"npm run dev:clinical-history\" \"npm run dev:tracking-reminders\" \"npm run dev:storage-service\" \"npm run dev:query-visualization\" \"npm run dev:notification-service\" \"npm run dev:frontend\"",
+    "start": "npm run dev",
+    "dev:user-management": "npm run dev --prefix services/user-management",
+    "dev:clinical-history": "npm run dev --prefix services/clinical-history",
+    "dev:tracking-reminders": "npm run dev --prefix services/tracking-reminders",
+    "dev:storage-service": "npm run dev --prefix services/storage-service",
+    "dev:query-visualization": "npm run dev --prefix services/query-visualization",
+    "dev:notification-service": "npm run dev --prefix services/notification-service",
+    "dev:frontend": "npm run dev --prefix frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

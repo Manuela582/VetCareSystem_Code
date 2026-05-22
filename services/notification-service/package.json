@@ -1,0 +1,20 @@
+{
+  "name": "@vetcare/notification-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Notificaciones multicanal",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "vetcare-system": "file:../.."
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

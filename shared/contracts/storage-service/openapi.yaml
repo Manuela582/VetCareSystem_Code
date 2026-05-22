@@ -1,0 +1,54 @@
+openapi: 3.0.3
+info:
+  title: Storage Service API
+  version: 1.0.0
+  description: Persistencia y respaldo de recursos — VetCare System
+servers:
+  - url: http://localhost:3004/api/v1
+paths:
+  /storage/{resource}:
+    get:
+      summary: Obtener recurso almacenado
+      tags: [Storage]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: resource
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Recurso encontrado
+        '404':
+          description: Recurso no encontrado
+    put:
+      summary: Guardar o actualizar recurso
+      tags: [Storage]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: resource
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Recurso guardado
+        '500':
+          description: Error de escritura
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

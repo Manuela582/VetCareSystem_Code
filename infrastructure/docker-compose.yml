@@ -1,0 +1,51 @@
+# VetCare System — entorno local (Fase 0)
+# Uso: docker compose -f infrastructure/docker-compose.yml up --build
+
+services:
+  user-management:
+    build:
+      context: ../services/user-management
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+
+  clinical-history:
+    build:
+      context: ../services/clinical-history
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+
+  tracking-reminders:
+    build:
+      context: ../services/tracking-reminders
+    ports:
+      - "3003:3003"
+    environment:
+      PORT: 3003
+
+  storage-service:
+    build:
+      context: ../services/storage-service
+    ports:
+      - "3004:3004"
+    environment:
+      PORT: 3004
+
+  query-visualization:
+    build:
+      context: ../services/query-visualization
+    ports:
+      - "3005:3005"
+    environment:
+      PORT: 3005
+
+  notification-service:
+    build:
+      context: ../services/notification-service
+    ports:
+      - "3006:3006"
+    environment:
+      PORT: 3006

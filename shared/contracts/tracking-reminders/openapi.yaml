@@ -1,0 +1,91 @@
+openapi: 3.0.3
+info:
+  title: Tracking Reminders Service API
+  version: 1.0.0
+  description: Alertas preventivas y recordatorios — VetCare System
+servers:
+  - url: http://localhost:3003/api/v1
+paths:
+  /reminders:
+    get:
+      summary: Listar recordatorios
+      tags: [Reminders]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: petId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [VACUNA, CONTROL, TRATAMIENTO]
+      responses:
+        '200':
+          description: Lista de recordatorios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Reminder'
+        '401':
+          description: No autenticado
+    post:
+      summary: Crear recordatorio
+      tags: [Reminders]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewReminder'
+      responses:
+        '201':
+          description: Recordatorio creado
+        '400':
+          description: Datos inválidos
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Reminder:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        petId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [VACUNA, CONTROL, TRATAMIENTO]
+        dueDate:
+          type: string
+          format: date
+        message:
+          type: string
+    NewReminder:
+      type: object
+      required: [petId, type, dueDate]
+      properties:
+        petId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [VACUNA, CONTROL, TRATAMIENTO]
+        dueDate:
+          type: string
+          format: date
+        message:
+          type: string

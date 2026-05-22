@@ -1,0 +1,62 @@
+openapi: 3.0.3
+info:
+  title: Notification Service API
+  version: 1.0.0
+  description: Envío multicanal de alertas — VetCare System
+servers:
+  - url: http://localhost:3006/api/v1
+paths:
+  /notifications/send:
+    post:
+      summary: Enviar notificación
+      tags: [Notifications]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendNotificationRequest'
+      responses:
+        '200':
+          description: Notificación enviada o encolada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResult'
+        '400':
+          description: Canal o plantilla inválidos
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    SendNotificationRequest:
+      type: object
+      required: [channel, to, subject, body]
+      properties:
+        channel:
+          type: string
+          enum: [EMAIL, PUSH, SMS]
+        to:
+          type: string
+        subject:
+          type: string
+        body:
+          type: string
+        templateId:
+          type: string
+    NotificationResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [SENT, QUEUED, FAILED]
+        channel:
+          type: string

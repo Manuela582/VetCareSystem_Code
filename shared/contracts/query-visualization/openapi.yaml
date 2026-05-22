@@ -1,0 +1,75 @@
+openapi: 3.0.3
+info:
+  title: Query Visualization Service API
+  version: 1.0.0
+  description: Dashboard y consultas agregadas — VetCare System
+servers:
+  - url: http://localhost:3005/api/v1
+paths:
+  /dashboard/{petId}:
+    get:
+      summary: Dashboard del historial de una mascota
+      tags: [Dashboard]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Dashboard agregado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PetDashboard'
+        '401':
+          description: No autenticado
+        '404':
+          description: Mascota no encontrada
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    PetDashboard:
+      type: object
+      properties:
+        petId:
+          type: string
+          format: uuid
+        petName:
+          type: string
+        recordsSummary:
+          type: object
+          properties:
+            totalConsultations:
+              type: integer
+            lastVisit:
+              type: string
+              format: date-time
+        upcomingReminders:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              dueDate:
+                type: string
+                format: date
