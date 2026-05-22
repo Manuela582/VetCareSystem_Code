@@ -52,9 +52,11 @@ export function ClinicalRecordFormPage() {
       const n = res.autoReminders?.length ?? 0;
       showSuccess(
         n > 0
-          ? `Consulta registrada. ${n} recordatorio(s) generado(s) automáticamente.`
-          : 'Consulta registrada',
+          ? `Consulta registrada. Visible en el panel y en recordatorios (${n} alerta(s)).`
+          : 'Consulta registrada. Revisa el panel veterinario.',
       );
+      navigate('/panel/veterinario');
+      return;
     }
     navigate(`/mascotas/${petId}/historial`);
   }
