@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { AppLayout } from '../components/layout/AppLayout';
 import { SkeletonCard } from '../components/ui/Skeleton';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -50,6 +50,9 @@ const REMINDER_STATUS_LABEL: Record<string, string> = {
 export function DashboardPage() {
   const { hasRole } = useAuth();
   const canManage = hasRole('VETERINARIO', 'ADMIN');
+
+  // Duenos no tienen acceso al dashboard analítico — van a su panel
+  if (!canManage) return <Navigate to="/panel/dueno" replace />;
   const [data, setData] = useState<MainDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

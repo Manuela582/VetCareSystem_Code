@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
 import { useAuth } from '../context/AuthContext';
 import * as petsApi from '../services/petsApi';
@@ -9,6 +9,8 @@ import type { Pet } from '../types/pet';
 export function PetsListPage() {
   const { hasRole } = useAuth();
   const canEdit = hasRole('VETERINARIO', 'ADMIN');
+
+  if (!canEdit) return <Navigate to="/panel/dueno" replace />;
   const [pets, setPets] = useState<Pet[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -108,7 +110,7 @@ export function PetsListPage() {
             {pet.photo ? (
               <img src={pet.photo} alt={pet.name} className="pet-card-photo" />
             ) : (
-              <div className="pet-card-placeholder">🐾</div>
+              <div className="pet-card-placeholder"><span className="material-symbols-rounded" style={{fontSize:'3rem',color:'var(--color-primary)',opacity:0.5}}>pets</span></div>
             )}
             <div className="pet-card-body">
               <h3>{pet.name}</h3>

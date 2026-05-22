@@ -231,7 +231,7 @@ export function RemindersPage() {
               {r.message && <p className="reminder-card__msg">{r.message}</p>}
               {canManage && r.confirmed && r.status !== 'COMPLETADO' && (
                 <span className="dueno-confirmed-label dueno-confirmed-label--card">
-                  ✓ Dueño confirmó asistencia
+                  <span className="material-symbols-rounded" style={{fontSize:'0.9rem',verticalAlign:'middle'}}>check_circle</span> Dueño confirmó asistencia
                   {r.confirmedAt &&
                     ` · ${new Date(r.confirmedAt).toLocaleString('es-CO', {
                       dateStyle: 'short',
@@ -281,7 +281,7 @@ export function RemindersPage() {
               )}
               {r.confirmed && r.status !== 'COMPLETADO' && (
                 <span className="dueno-confirmed-label dueno-confirmed-label--card">
-                  ✓ Asistencia confirmada
+                  <span className="material-symbols-rounded" style={{fontSize:'0.9rem',verticalAlign:'middle'}}>check_circle</span> Asistencia confirmada
                   {r.confirmedAt &&
                     ` · ${new Date(r.confirmedAt).toLocaleString('es-CO', {
                       dateStyle: 'short',

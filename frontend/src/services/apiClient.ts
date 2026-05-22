@@ -31,8 +31,9 @@ export async function apiRequest<T>(
     ...(options.headers as Record<string, string>),
   };
 
-  if (!options.skipAuth && getToken) {
-    const token = getToken();
+  if (!options.skipAuth) {
+    // Primero intenta getToken (configurado por ApiBridge), luego lee localStorage directamente
+    const token = (getToken ? getToken() : null) ?? localStorage.getItem('vetcare_token');
     if (token) headers.Authorization = `Bearer ${token}`;
   }
 

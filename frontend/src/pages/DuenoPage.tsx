@@ -1,260 +1,251 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AppLayout } from '../components/layout/AppLayout';
-import { SkeletonCard } from '../components/ui/Skeleton';
-import { EmptyState } from '../components/ui/EmptyState';
 import { useAuth } from '../context/AuthContext';
-import { useNotifications } from '../context/NotificationContext';
 import * as petsApi from '../services/petsApi';
 import * as remindersApi from '../services/remindersApi';
-import { getAuthErrorMessage } from '../utils/authErrors';
 import type { Pet } from '../types/pet';
-import type { Reminder, ReminderStatus, ReminderType } from '../types/reminder';
+import type { Reminder } from '../types/reminder';
 
-const TYPE_LABELS: Record<ReminderType, string> = {
-  VACUNA: 'Vacuna',
-  CONTROL: 'Control',
-  TRATAMIENTO: 'Tratamiento',
+const STATUS_LABELS: Record<string, string> = {
+  PENDIENTE: 'Pending', COMPLETADO: 'Completed', VENCIDO: 'Overdue',
 };
-
-const STATUS_LABELS: Record<ReminderStatus, string> = {
-  PENDIENTE: 'Pendiente',
-  COMPLETADO: 'Completado',
-  VENCIDO: 'Vencido',
+const statusClass: Record<string, string> = {
+  PENDIENTE: 'status--activa', COMPLETADO: 'status--cerrada', VENCIDO: 'status--urgente',
 };
-
-const statusClass: Record<ReminderStatus, string> = {
-  PENDIENTE: 'status--activa',
-  COMPLETADO: 'status--cerrada',
-  VENCIDO: 'status--urgente',
+const TYPE_ICON: Record<string, string> = {
+  VACUNA: 'vaccines', CONTROL: 'calendar_today', TRATAMIENTO: 'medication',
 };
 
 export function DuenoPage() {
   const { user } = useAuth();
-  const { showSuccess, showError } = useNotifications();
-  const [pets, setPets] = useState<Pet[]>([]);
+  const [pets, setPets]           = useState<Pet[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]     = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [activePetIdx, setActivePetIdx] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
-    setError('');
+    setLoadError('');
     try {
-      const [p, r] = await Promise.all([petsApi.listPets(), remindersApi.listReminders()]);
-      const petList = p.pets;
-      const petIds = new Set(petList.map((x) => x.id));
-      const pending = r.reminders.filter((x) => x.status !== 'COMPLETADO');
-      const filtered =
-        user?.role === 'DUENO' ? pending.filter((x) => petIds.has(x.petId)) : pending;
-
-      setPets(petList);
-      setReminders(filtered.slice(0, 8));
-    } catch (e) {
-      setError(getAuthErrorMessage(e));
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.role]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  async function handleConfirm(id: string) {
-    try {
-      await remindersApi.confirmReminder(id);
-      showSuccess('Asistencia confirmada');
-      await load();
+      const [p, r] = await Promise.all([
+        petsApi.listPets(),
+        remindersApi.listReminders().catch(() => ({ reminders: [] })),
+      ]);
+      console.log('[DuenoPage] pets:', p.pets, 'reminders:', r.reminders);
+      setPets(p.pets);
+      setReminders(r.reminders.filter((x: import('../types/reminder').Reminder) => x.status !== 'COMPLETADO').slice(0, 6));
     } catch (err) {
-      showError(getAuthErrorMessage(err));
+      console.error('[DuenoPage] load error:', err);
+      setLoadError(err instanceof Error ? err.message : 'Error cargando datos');
     }
-  }
+    finally { setLoading(false); }
+  }, []);
 
-  const upcomingCount = reminders.filter((r) => r.status === 'PENDIENTE').length;
-  const overdueCount = reminders.filter((r) => r.status === 'VENCIDO').length;
+  useEffect(() => { load(); }, [load]);
+
+  const firstName = user?.fullName?.split(' ')[0] ?? 'there';
+  const activePet = pets[activePetIdx] ?? null;
+
+  // Debug — remove after confirming display works
+  console.log('[DuenoPage render] pets.length:', pets.length, 'activePet:', activePet, 'loading:', loading);
+  const overdueCount = reminders.filter(r => r.status === 'VENCIDO').length;
 
   return (
-    <AppLayout title="Panel dueño de mascota">
-      <div className="dueno-readonly-banner" role="note">
-        <strong>Solo lectura</strong> en historial clínico: puedes consultar vacunas, tratamientos y
-        citas. No puedes editar consultas ni eliminar registros (RBAC — PDF).
+    <AppLayout title="My Panel">
+      {/* ── Hero ── */}
+      <div className="dueno-hero">
+        <div className="dueno-hero__left">
+          <div className="dueno-hero__paw" aria-hidden>
+            <span className="material-symbols-rounded dueno-hero__paw-icon">pets</span>
+          </div>
+          <h2 className="dueno-hero__greeting">Hello, {firstName}.</h2>
+          <p className="dueno-hero__sub">
+            Your pet's health overview is up to date. Keep track of upcoming appointments and manage your consultations.
+          </p>
+          <Link to="/solicitar-cita" className="dueno-hero__cta">
+            <span className="material-symbols-rounded">home_health</span>
+            Request Vet at Home
+          </Link>
+        </div>
+
+        {/* Active order / next appointment */}
+        {reminders.length > 0 && (
+          <div className="dueno-hero__order">
+            <span className="dueno-hero__order-badge">
+              <span className="material-symbols-rounded" style={{ fontSize: '0.85rem' }}>schedule</span>
+              Upcoming
+            </span>
+            <h4 className="dueno-hero__order-title">{reminders[0].title}</h4>
+            <p className="dueno-hero__order-sub">
+              {reminders[0].petName || activePet?.name || 'Your pet'}
+            </p>
+            <div className="dueno-hero__order-time">
+              <span className="material-symbols-rounded">calendar_today</span>
+              <div>
+                <small>Scheduled</small>
+                <strong>{new Date(reminders[0].dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {user?.role === 'ADMIN' && (
-        <p className="dueno-admin-hint">
-          Vista administrador: en este panel un dueño solo vería <em>sus</em> mascotas. Tú ves el
-          listado completo del sistema para supervisión.
-        </p>
+      {loadError && (
+        <div className="auth-error" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="material-symbols-rounded" style={{ fontSize: '1rem' }}>error</span>
+          {loadError}
+          <button type="button" className="btn-text" style={{ marginLeft: 'auto', padding: 0 }} onClick={load}>
+            Reintentar
+          </button>
+        </div>
       )}
 
-      {error && <p className="auth-error">{error}</p>}
-
-      {loading && (
+      {loading ? (
         <div className="dashboard-stats">
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
+          {[1,2,3].map(i => <div key={i} className="skeleton-card"><div className="skeleton skeleton-line--lg" /></div>)}
         </div>
-      )}
-
-      {!loading && (
-        <>
-          <section className="dashboard-stats">
-            <div className="admin-stat-card">
-              <span className="admin-stat-label">Mis mascotas</span>
-              <strong>{pets.length}</strong>
-            </div>
-            <div className="admin-stat-card admin-stat-card--warn">
-              <span className="admin-stat-label">Citas / recordatorios</span>
-              <strong>{reminders.length}</strong>
-            </div>
-            <div className="admin-stat-card">
-              <span className="admin-stat-label">Próximas</span>
-              <strong>{upcomingCount}</strong>
-            </div>
-            <div className="admin-stat-card admin-stat-card--accent">
-              <span className="admin-stat-label">Vencidos</span>
-              <strong>{overdueCount}</strong>
-            </div>
-          </section>
-
-          <div className="dashboard-grid">
-            <section className="dashboard-panel dashboard-panel--wide">
-              <h2>Mis mascotas</h2>
-              {pets.length === 0 ? (
-                <EmptyState
-                  title="Sin mascotas registradas"
-                  description="Cuando el veterinario registre tus mascotas, aparecerán aquí."
-                  action={
-                    <Link to="/mascotas" className="btn-primary dueno-panel-actions__btn">
-                      Ir a mascotas
-                    </Link>
-                  }
-                />
-              ) : (
-                <ul className="dueno-pets-grid">
-                  {pets.map((p) => (
-                    <li key={p.id} className="dueno-pet-card">
-                      <Link to={`/mascotas/${p.id}`} className="dueno-pet-card__main">
-                        <span className="dueno-pet-card__icon" aria-hidden>
-                          🐾
-                        </span>
-                        <div>
-                          <h3>{p.name}</h3>
-                          <p>
-                            {p.species} · {p.breed}
-                          </p>
-                          <span className="dueno-pet-card__meta">
-                            {p.age} años · {p.weight} kg
-                          </span>
-                        </div>
-                      </Link>
-                      <div className="dueno-pet-card__actions">
-                        <Link
-                          to={`/mascotas/${p.id}/historial`}
-                          className="btn-outline dueno-panel-actions__btn"
-                        >
-                          Historial clínico
-                        </Link>
-                        <Link
-                          to={`/mascotas/${p.id}#notas-dueno`}
-                          className="btn-outline dueno-panel-actions__btn"
-                        >
-                          Info complementaria
-                        </Link>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
-            <section className="dashboard-panel dashboard-panel--wide">
-              <div className="dueno-panel-section-head">
-                <h2>Próximas citas y recordatorios</h2>
-                <Link to="/recordatorios" className="btn-outline dueno-panel-actions__btn">
-                  Ver todos
-                </Link>
+      ) : (
+        <div className="dueno-content">
+          {/* Left: Pet card */}
+          <div className="dueno-left">
+            {pets.length === 0 ? (
+              <div className="dueno-no-pets">
+                <span className="material-symbols-rounded dueno-no-pets__icon">pets</span>
+                <p>No pets registered yet.</p>
+                <Link to="/mascotas/nueva" className="btn-primary">Register your first pet</Link>
               </div>
-              {reminders.length === 0 ? (
-                <EmptyState title="Sin recordatorios pendientes" />
-              ) : (
-                <ul className="dashboard-list">
-                  {reminders.map((r) => (
-                    <li key={r.id} className="dueno-reminder-item">
-                      <div className="dashboard-list__row">
+            ) : (
+              <>
+                {/* Pet selector tabs */}
+                {pets.length > 1 && (
+                  <div className="dueno-pet-tabs">
+                    {pets.map((p, i) => (
+                      <button key={p.id} type="button" className={`dueno-pet-tab ${activePetIdx === i ? 'dueno-pet-tab--active' : ''}`} onClick={() => setActivePetIdx(i)}>
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {activePet && (
+                  <div className="dueno-pet-detail">
+                    <div className="dueno-pet-detail__header">
+                      <div className="dueno-pet-detail__avatar">
+                        {activePet.photo
+                          ? <img src={activePet.photo} alt={activePet.name} />
+                          : <span className="material-symbols-rounded" style={{ fontSize: '2.5rem', color: 'var(--color-primary)' }}>pets</span>
+                        }
+                      </div>
+                      <div>
+                        <h3 className="dueno-pet-detail__name">{activePet.name}</h3>
+                        <p className="dueno-pet-detail__meta">{activePet.species} {activePet.breed && `· ${activePet.breed}`} · {activePet.age} yrs</p>
+                      </div>
+                    </div>
+
+                    <div className="dueno-pet-detail__stats">
+                      <div className="dueno-pet-stat">
+                        <span className="material-symbols-rounded dueno-pet-stat__icon">monitor_weight</span>
+                        <span className="dueno-pet-stat__label">Weight</span>
+                        <strong className="dueno-pet-stat__value">{activePet.weight} kg</strong>
+                      </div>
+                      {activePet.allergies && (
+                        <div className="dueno-pet-stat dueno-pet-stat--warn">
+                          <span className="material-symbols-rounded dueno-pet-stat__icon">warning</span>
+                          <span className="dueno-pet-stat__label">Allergies</span>
+                          <strong className="dueno-pet-stat__value">{activePet.allergies}</strong>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="dueno-pet-detail__actions">
+                      <Link to={`/mascotas/${activePet.id}/historial`} className="btn-outline" style={{ flex: 1, textAlign: 'center', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                        <span className="material-symbols-rounded" style={{ fontSize: '1rem' }}>history</span>
+                        Full Medical History
+                      </Link>
+                      <Link to="/solicitar-cita" className="btn-primary" style={{ flex: 1, textAlign: 'center', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 0 }}>
+                        <span className="material-symbols-rounded" style={{ fontSize: '1rem' }}>calendar_add_on</span>
+                        Book Appointment
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Stats strip */}
+            <div className="dueno-stats">
+              <div className="dueno-stat-card">
+                <span className="admin-stat-label">My Pets</span>
+                <strong>{pets.length}</strong>
+              </div>
+              <div className="dueno-stat-card">
+                <span className="admin-stat-label">Upcoming</span>
+                <strong>{reminders.length}</strong>
+              </div>
+              <div className={`dueno-stat-card ${overdueCount > 0 ? 'admin-stat-card--accent' : ''}`}>
+                <span className="admin-stat-label">Overdue</span>
+                <strong>{overdueCount}</strong>
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Appointments / reminders */}
+          <div className="dueno-right">
+            <div className="dueno-section-head">
+              <h3>Upcoming Appointments</h3>
+              <Link to="/recordatorios" className="btn-text" style={{ fontSize: '0.82rem' }}>View all →</Link>
+            </div>
+
+            {reminders.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--color-muted)' }}>
+                <span className="material-symbols-rounded" style={{ fontSize: '2.5rem', display: 'block', marginBottom: 8, color: 'var(--color-border)' }}>calendar_today</span>
+                <p>No upcoming appointments.</p>
+                <Link to="/solicitar-cita" className="btn-primary" style={{ marginTop: 12 }}>Request one now</Link>
+              </div>
+            ) : (
+              <div className="dueno-reminders">
+                {reminders.map(r => (
+                  <div key={r.id} className="dueno-reminder-card">
+                    <div className="dueno-reminder-card__icon-wrap">
+                      <span className="material-symbols-rounded dueno-reminder-card__icon">{TYPE_ICON[r.type] ?? 'event'}</span>
+                    </div>
+                    <div className="dueno-reminder-card__info">
+                      <div className="dueno-reminder-card__row">
                         <strong>{r.title}</strong>
-                        <span className={`clinical-status ${statusClass[r.status]}`}>
-                          {STATUS_LABELS[r.status]}
+                        <span className={`clinical-status ${statusClass[r.status] ?? ''}`}>
+                          {STATUS_LABELS[r.status] ?? r.status}
                         </span>
                       </div>
-                      <span className="dashboard-list__sub">
-                        <strong>{r.petName}</strong> ·{' '}
-                        {new Date(r.dueDate).toLocaleDateString('es-CO')} · {TYPE_LABELS[r.type]}
-                        {r.confirmed && (
-                          <span className="dashboard-list__tag"> · Confirmado</span>
-                        )}
+                      <span className="dueno-reminder-card__meta">
+                        {r.petName && <>{r.petName} · </>}
+                        {new Date(r.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                       </span>
-                      {r.message && <p className="dueno-reminder-msg">{r.message}</p>}
-                      {r.status !== 'COMPLETADO' && !r.confirmed && (
-                        <button
-                          type="button"
-                          className="btn-outline dueno-panel-actions__btn dueno-confirm-btn"
-                          onClick={() => handleConfirm(r.id)}
-                        >
-                          Confirmar asistencia
-                        </button>
-                      )}
-                      {r.confirmed && r.status !== 'COMPLETADO' && (
-                        <span className="dueno-confirmed-label">
-                          ✓ Asistencia confirmada
-                          {r.confirmedAt &&
-                            ` · ${new Date(r.confirmedAt).toLocaleString('es-CO', {
-                              dateStyle: 'short',
-                              timeStyle: 'short',
-                            })}`}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
+                      {r.message && <p className="dueno-reminder-card__msg">{r.message}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
-            <section className="dashboard-panel">
-              <h2>Seguimiento y notificaciones</h2>
-              <ul className="dueno-features-list">
-                <li>Consultar historial clínico de tus mascotas</li>
-                <li>Ver vacunas y tratamientos registrados</li>
-                <li>Recibir alertas en el centro de notificaciones (campana)</li>
-                <li>Actualizar datos personales en Mi perfil</li>
-              </ul>
-              <Link to="/perfil" className="btn-outline dueno-panel-actions__btn">
-                Editar perfil
+            <div className="dueno-quick-actions">
+              <Link to="/marketplace" className="dueno-quick-btn">
+                <span className="material-symbols-rounded">storefront</span>
+                Shop for my pet
               </Link>
-            </section>
+              <Link to="/perfil" className="dueno-quick-btn">
+                <span className="material-symbols-rounded">person</span>
+                My profile
+              </Link>
+              <Link to="/solicitar-cita" className="dueno-quick-btn dueno-quick-btn--primary">
+                <span className="material-symbols-rounded">home_health</span>
+                Vet at home
+              </Link>
+            </div>
           </div>
-        </>
-      )}
-
-      <footer className="dueno-panel-footer">
-        <h2 className="dueno-panel-footer__title">Acciones rápidas</h2>
-        <div className="dueno-panel-actions">
-          <Link to="/mascotas" className="btn-primary dueno-panel-actions__btn">
-            Mis mascotas
-          </Link>
-          <Link to="/recordatorios" className="btn-outline dueno-panel-actions__btn">
-            Recordatorios
-          </Link>
-          <Link to="/perfil" className="btn-outline dueno-panel-actions__btn">
-            Mi perfil
-          </Link>
-          <Link to="/inicio" className="btn-text dueno-panel-actions__link">
-            Dashboard general
-          </Link>
         </div>
-      </footer>
+      )}
     </AppLayout>
   );
 }

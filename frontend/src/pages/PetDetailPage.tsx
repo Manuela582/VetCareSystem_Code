@@ -107,7 +107,7 @@ export function PetDetailPage() {
               <img src={pet.photo} alt={pet.name} />
             ) : (
               <div className="pet-detail-card__placeholder" aria-hidden>
-                🐾
+                <span className="material-symbols-rounded" style={{fontSize:'4rem',color:'var(--color-primary)',opacity:0.5}}>pets</span>
               </div>
             )}
           </div>

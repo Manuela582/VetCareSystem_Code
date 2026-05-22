@@ -21,6 +21,10 @@ import { PetFormPage } from './pages/PetFormPage';
 import { ClinicalHistoryPage } from './pages/ClinicalHistoryPage';
 import { ClinicalRecordFormPage } from './pages/ClinicalRecordFormPage';
 import { RemindersPage } from './pages/RemindersPage';
+import { MarketplacePage } from './pages/MarketplacePage';
+import { CartPage } from './pages/CartPage';
+import { AppointmentRequestPage } from './pages/AppointmentRequestPage';
+import { CartProvider } from './context/CartContext';
 import { ProfilePage } from './pages/ProfilePage';
 import { ApiDocsPage } from './pages/ApiDocsPage';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -46,12 +50,15 @@ function AppRoutes() {
       <Route path="/panel/dueno" element={<ProtectedRoute><RoleRoute allowedRoles={['DUENO', 'ADMIN']}><DuenoPage /></RoleRoute></ProtectedRoute>} />
       <Route path="/admin" element={<ProtectedRoute><RoleRoute allowedRoles={['ADMIN']}><AdminPage /></RoleRoute></ProtectedRoute>} />
       <Route path="/mascotas" element={<ProtectedRoute><RoleRoute allowedRoles={['DUENO', 'VETERINARIO', 'ADMIN']}><PetsListPage /></RoleRoute></ProtectedRoute>} />
-      <Route path="/mascotas/nueva" element={<ProtectedRoute><RoleRoute allowedRoles={['VETERINARIO', 'ADMIN']}><PetFormPage /></RoleRoute></ProtectedRoute>} />
+      <Route path="/mascotas/nueva" element={<ProtectedRoute><RoleRoute allowedRoles={['DUENO', 'VETERINARIO', 'ADMIN']}><PetFormPage /></RoleRoute></ProtectedRoute>} />
       <Route path="/mascotas/:id/editar" element={<ProtectedRoute><RoleRoute allowedRoles={['VETERINARIO', 'ADMIN']}><PetFormPage /></RoleRoute></ProtectedRoute>} />
       <Route path="/mascotas/:id/historial/nueva" element={<ProtectedRoute><RoleRoute allowedRoles={['VETERINARIO', 'ADMIN']}><ClinicalRecordFormPage /></RoleRoute></ProtectedRoute>} />
       <Route path="/mascotas/:id/historial/:recordId/editar" element={<ProtectedRoute><RoleRoute allowedRoles={['VETERINARIO', 'ADMIN']}><ClinicalRecordFormPage /></RoleRoute></ProtectedRoute>} />
       <Route path="/mascotas/:id/historial" element={<ProtectedRoute><RoleRoute allowedRoles={['DUENO', 'VETERINARIO', 'ADMIN']}><ClinicalHistoryPage /></RoleRoute></ProtectedRoute>} />
       <Route path="/mascotas/:id" element={<ProtectedRoute><RoleRoute allowedRoles={['DUENO', 'VETERINARIO', 'ADMIN']}><PetDetailPage /></RoleRoute></ProtectedRoute>} />
+      <Route path="/marketplace" element={<ProtectedRoute><RoleRoute allowedRoles={['DUENO', 'VETERINARIO', 'ADMIN']}><MarketplacePage /></RoleRoute></ProtectedRoute>} />
+      <Route path="/carrito" element={<ProtectedRoute><CartPage /></ProtectedRoute>} />
+      <Route path="/solicitar-cita" element={<ProtectedRoute><RoleRoute allowedRoles={['DUENO', 'ADMIN']}><AppointmentRequestPage /></RoleRoute></ProtectedRoute>} />
       <Route path="/perfil" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
       <Route path="/api-docs" element={<ProtectedRoute><ApiDocsPage /></ProtectedRoute>} />
       <Route path="/error-servidor" element={<ProtectedRoute><ServerErrorPage /></ProtectedRoute>} />
@@ -65,11 +72,13 @@ export default function App() {
   return (
     <AuthProvider>
       <NotificationProvider>
-        <BrowserRouter>
-          <ApiBridge />
-          <ToastContainer />
-          <AppRoutes />
-        </BrowserRouter>
+        <CartProvider>
+          <BrowserRouter>
+            <ApiBridge />
+            <ToastContainer />
+            <AppRoutes />
+          </BrowserRouter>
+        </CartProvider>
       </NotificationProvider>
     </AuthProvider>
   );

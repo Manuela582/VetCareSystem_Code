@@ -14,6 +14,8 @@ export interface Pet {
   ownerId: string;
   ownerName: string;
   photo: string | null;
+  allergies?: string;
+  clinicalNotes?: string;
   ownerNotes?: OwnerNotes;
   createdAt: string;
 }
@@ -27,6 +29,8 @@ export interface PetInput {
   ownerId?: string;
   ownerName?: string;
   photo?: string | null;
+  allergies?: string;
+  clinicalNotes?: string;
 }
 
 export interface OwnerOption {

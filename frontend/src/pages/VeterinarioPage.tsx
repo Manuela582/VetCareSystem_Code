@@ -255,8 +255,7 @@ export function VeterinarioPage() {
           </Link>
         </div>
         <p className="admin-hint">
-          Busca por nombre, dueño, vacuna o fecha en Mascotas. Revisa la campana 🔔 para alertas
-          IN_APP del paciente.
+          Busca por nombre, dueño, vacuna o fecha en Patients. Revisa el icono de notificaciones para alertas IN_APP del paciente.
         </p>
       </footer>
     </AppLayout>

@@ -14,7 +14,11 @@ export function getDashboard() {
 }
 
 export function listUsers() {
-  return apiRequest<{ users: User[] }>('/admin/users');
+  return apiRequest<unknown>('/users').then((res) => {
+    if (Array.isArray(res)) return { users: res as User[] };
+    const r = res as { users?: User[] };
+    return { users: r.users ?? [] };
+  });
 }
 
 export function createUser(data: AdminUserInput) {

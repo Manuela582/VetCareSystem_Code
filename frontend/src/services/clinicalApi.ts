@@ -48,3 +48,32 @@ export function deleteRecord(petId: string, recordId: string) {
     { method: 'DELETE' },
   );
 }
+
+export interface Vaccination {
+  id: string;
+  petId: string;
+  vaccine: string;
+  date: string;
+  nextDueDate?: string;
+  veterinarian?: string;
+  notes?: string;
+}
+
+export interface VaccinationInput {
+  vaccine: string;
+  date: string;
+  nextDueDate?: string;
+  veterinarian?: string;
+  notes?: string;
+}
+
+export function listVaccinations(petId: string) {
+  return apiRequest<{ vaccinations: Vaccination[] }>(`/patients/${petId}/vaccinations`);
+}
+
+export function createVaccination(petId: string, data: VaccinationInput) {
+  return apiRequest<{ vaccination: Vaccination }>(`/patients/${petId}/vaccinations`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}

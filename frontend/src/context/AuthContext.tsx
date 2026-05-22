@@ -8,7 +8,6 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import * as authApi from '../services/authApi';
 import type { User, UserRole } from '../types/auth';
 import { getTokenExpiresAtMs, getTokenRemainingMs, isTokenExpired } from '../utils/jwt';
 
@@ -135,20 +134,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      try {
-        setToken(saved.token);
-        const { user: freshUser } = await authApi.getMe();
-        const exp =
-          saved.expiresAt || getTokenExpiresAtMs(saved.token) || Date.now() + 3600000;
-        persistSession(saved.token, freshUser, exp);
-      } catch {
-        clearStorage();
-        setToken(null);
-        setUser(null);
-        setExpiresAt(null);
-      } finally {
-        setIsLoading(false);
-      }
+      // JWT válido y no expirado → restaurar sesión directamente desde localStorage.
+      // No llamamos getMe() aquí porque configureApiClient (ApiBridge) aún no se ha
+      // ejecutado en este punto del ciclo de efectos, por lo que la petición saldría
+      // sin el header Authorization y el backend respondería 401 borrando la sesión.
+      const exp =
+        saved.expiresAt || getTokenExpiresAtMs(saved.token) || Date.now() + 3600000;
+      setToken(saved.token);
+      setUser(saved.user);
+      setExpiresAt(exp);
+      scheduleAutoLogout(saved.token);
+      setIsLoading(false);
     }
 
     restoreSession();
