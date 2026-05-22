@@ -3,6 +3,10 @@ import { useAuth } from '../context/AuthContext';
 import { LoadingScreen } from './LoadingScreen';
 import type { ReactNode } from 'react';
 
+/*
+ * Escenario 1 (pantalla) — Antes de mostrar historial u otras páginas privadas.
+ * Si no hay sesión guardada, redirige a login (solicita autenticación al usuario).
+ */
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading, authNotice } = useAuth();
 
@@ -10,6 +14,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
     return <LoadingScreen />;
   }
 
+  // BLOQUEO Esc.1: no autenticado → no ve la página; va a /login con mensaje.
   if (!isAuthenticated) {
     return (
       <Navigate
@@ -20,5 +25,6 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
     );
   }
 
+  // PERMITIDO: ya inició sesión → muestra la ruta (ej. historial).
   return <>{children}</>;
 }

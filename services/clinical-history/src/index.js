@@ -20,22 +20,45 @@ const recordsById = new Map();
 const CLINICAL_STATUSES = ['ACTIVA', 'SEGUIMIENTO', 'CERRADA', 'URGENTE'];
 const LUNA_PET_ID = '10000000-0000-4000-8000-000000000001';
 
+/*
+ * SEGURIDAD (PDF §3.1)
+ * Esc.1 — Ver historial sin permiso: authMiddleware, canAccessPet, getPetOr404, GET .../records
+ * Esc.2 — Editar sin ser veterinario: canEditClinical, POST / PUT / DELETE .../records
+ *
+ * FIABILIDAD (PDF §3.2)
+ * Esc.4 — Registro correcto de consulta: validateRecordBody, POST .../records, createAutoReminders
+ *         Confirmación al usuario: frontend ClinicalRecordFormPage (mensaje de éxito).
+ * Esc.3 — Failover de almacenamiento: NO está aquí; ver services/storage-service (stub + /health).
+ */
+
+/*
+ * Escenario 2 — Regla central: ¿este rol puede modificar consultas del historial?
+ * Devuelve false para DUENO → las rutas POST/PUT/DELETE usarán eso para bloquear.
+ */
 function canEditClinical(userRole) {
   return userRole === 'VETERINARIO' || userRole === 'ADMIN';
 }
 
+/*
+ * Escenario 1 — Primera barrera al pedir historial (va antes de GET/POST/PUT de registros).
+ * Sin sesión válida no llega a leer ni a intentar editar datos.
+ */
 function authMiddleware(req, res, next) {
   const header = req.headers.authorization;
+
+  // BLOQUEO + pedir sesión: quien llama sin haber iniciado sesión en user-management.
   if (!header?.startsWith('Bearer ')) {
     return res.status(401).json({ message: 'Token requerido', code: 'TOKEN_INVALID' });
   }
   try {
     const payload = jwt.verify(header.slice(7), JWT_SECRET);
+    // Sesión válida: guardamos id y rol para las siguientes comprobaciones.
     req.userId = payload.sub;
     req.userRole = payload.role;
     req.userEmail = payload.email;
     next();
   } catch (err) {
+    // BLOQUEO: sesión expirada o inválida.
     if (err.name === 'TokenExpiredError') {
       return res.status(401).json({ message: 'Sesión expirada', code: 'TOKEN_EXPIRED' });
     }
@@ -43,6 +66,10 @@ function authMiddleware(req, res, next) {
   }
 }
 
+/*
+ * Escenario 1 — Segunda barrera al VER historial: ¿esta mascota le pertenece?
+ * Dueño ajeno → false → getPetOr404 bloqueará con "sin permiso".
+ */
 function canAccessPet(pet, userId, userRole) {
   if (userRole === 'VETERINARIO' || userRole === 'ADMIN') return true;
   return pet.ownerId === userId;
@@ -118,6 +145,7 @@ async function notifyOwner(authHeader, ownerId, subject, body, channel = 'IN_APP
   }
 }
 
+// Escenario 4 — Después de un registro exitoso, tareas derivadas (recordatorios al dueño).
 async function createAutoReminders(req, pet, record) {
   const auth = req.headers.authorization;
   if (!auth) return [];
@@ -414,12 +442,17 @@ app.delete(`${API_PREFIX}/pets/:id`, authMiddleware, (req, res) => {
   return res.json({ message: 'Mascota eliminada correctamente' });
 });
 
+/*
+ * Escenario 1 — Se llama justo antes de devolver o modificar el historial de una mascota.
+ * Aquí se decide si ese usuario puede trabajar con ESA mascota.
+ */
 function getPetOr404(petId, req, res) {
   const pet = petsById.get(petId);
   if (!pet) {
     res.status(404).json({ message: 'Mascota no encontrada' });
     return null;
   }
+  // BLOQUEO Esc.1: dueño intentando ver historial de mascota de otro dueño.
   if (!canAccessPet(pet, req.userId, req.userRole)) {
     res.status(403).json({ message: 'Sin permiso sobre esta mascota', code: 'FORBIDDEN' });
     return null;
@@ -456,6 +489,10 @@ function filterRecords(records, query) {
   return list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
+/*
+ * Escenario 4 — Antes de guardar, revisar que los datos de la consulta sean válidos.
+ * Si hay errores, devuelve lista de mensajes → la ruta POST responde 400 (no guarda basura).
+ */
 function validateRecordBody(body, isUpdate = false) {
   const errors = [];
   const diagnosis = body.diagnosis?.trim();
@@ -470,6 +507,7 @@ function validateRecordBody(body, isUpdate = false) {
   const status = CLINICAL_STATUSES.includes(body.status) ? body.status : 'ACTIVA';
   const date = body.date ? new Date(body.date).toISOString() : null;
 
+  // Esc.4: campos obligatorios para una consulta nueva (reduce errores de registro).
   if (!isUpdate || body.diagnosis !== undefined) {
     if (!diagnosis) errors.push('El diagnóstico es obligatorio');
   }
@@ -480,8 +518,12 @@ function validateRecordBody(body, isUpdate = false) {
   return { errors, diagnosis, treatment, observations, vaccines, status, date };
 }
 
+/*
+ * Escenario 1 — Ver listado del historial clínico.
+ * Flujo: authMiddleware (sesión) → getPetOr404 (permiso sobre la mascota) → datos.
+ */
 app.get(`${API_PREFIX}/patients/:petId/records`, authMiddleware, (req, res) => {
-  if (!getPetOr404(req.params.petId, req, res)) return;
+  if (!getPetOr404(req.params.petId, req, res)) return; // si devolvió null, ya se bloqueó arriba
 
   const records = filterRecords(
     [...recordsById.values()].filter((r) => r.petId === req.params.petId),
@@ -490,6 +532,7 @@ app.get(`${API_PREFIX}/patients/:petId/records`, authMiddleware, (req, res) => {
   return res.json({ records });
 });
 
+// Escenario 1 — Ver un registro concreto (mismas barreras: sesión + mascota permitida).
 app.get(`${API_PREFIX}/patients/:petId/records/:recordId`, authMiddleware, (req, res) => {
   if (!getPetOr404(req.params.petId, req, res)) return;
 
@@ -500,8 +543,15 @@ app.get(`${API_PREFIX}/patients/:petId/records/:recordId`, authMiddleware, (req,
   return res.json({ record });
 });
 
+/*
+ * Escenario 4 — Veterinario registra una nueva consulta (PDF §3.2).
+ * Flujo: sesión → permiso rol (Esc.2) → validar datos → guardar → confirmar (201 + JSON).
+ * Estímulo: alta de consulta médica. Artefacto: clinical-history.
+ */
 app.post(`${API_PREFIX}/patients/:petId/records`, authMiddleware, async (req, res) => {
   if (!getPetOr404(req.params.petId, req, res)) return;
+
+  // Esc.2: solo veterinario/admin puede registrar (el veterinario del PDF pasa esta línea).
   if (!canEditClinical(req.userRole)) {
     return res.status(403).json({
       message: 'Solo veterinarios pueden crear consultas',
@@ -511,6 +561,7 @@ app.post(`${API_PREFIX}/patients/:petId/records`, authMiddleware, async (req, re
 
   const { errors, diagnosis, treatment, observations, vaccines, status, date } =
     validateRecordBody(req.body);
+  // Esc.4: datos inválidos → no se guarda; se explica el error al cliente.
   if (errors.length) return res.status(400).json({ message: errors.join('. ') });
 
   const now = new Date().toISOString();
@@ -526,14 +577,23 @@ app.post(`${API_PREFIX}/patients/:petId/records`, authMiddleware, async (req, re
     createdAt: now,
     updatedAt: now,
   };
+  // Esc.4: aquí se persiste la consulta (demo: memoria; producción: base de datos del servicio).
   recordsById.set(record.id, record);
   const pet = petsById.get(req.params.petId);
+  // Esc.4 extra: tras guardar bien, opcionalmente crea recordatorios (vacuna, seguimiento).
   const autoReminders = pet ? await createAutoReminders(req, pet, record) : [];
+  // CONFIRMACIÓN Esc.4: 201 Created + registro guardado (el frontend muestra mensaje de éxito).
   return res.status(201).json({ record, autoReminders });
 });
 
+/*
+ * Escenario 2 — Editar consulta (estímulo del PDF: intento de edición del historial).
+ * El bloqueo ocurre en el if de abajo, antes de tocar el registro en memoria.
+ */
 app.put(`${API_PREFIX}/patients/:petId/records/:recordId`, authMiddleware, (req, res) => {
   if (!getPetOr404(req.params.petId, req, res)) return;
+
+  // BLOQUEO Esc.2: aquí se rechaza la edición y se notifica al cliente (mensaje en JSON).
   if (!canEditClinical(req.userRole)) {
     return res.status(403).json({
       message: 'Solo veterinarios pueden editar registros',
@@ -561,8 +621,11 @@ app.put(`${API_PREFIX}/patients/:petId/records/:recordId`, authMiddleware, (req,
   return res.json({ record });
 });
 
+// Escenario 2 — Eliminar consulta (misma lógica de bloqueo que PUT).
 app.delete(`${API_PREFIX}/patients/:petId/records/:recordId`, authMiddleware, (req, res) => {
   if (!getPetOr404(req.params.petId, req, res)) return;
+
+  // BLOQUEO Esc.2: dueño no puede borrar registros clínicos.
   if (!canEditClinical(req.userRole)) {
     return res.status(403).json({
       message: 'Solo veterinarios pueden eliminar registros',

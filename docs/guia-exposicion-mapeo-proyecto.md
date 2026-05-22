@@ -71,8 +71,10 @@ JWT: se genera en `POST /api/v1/auth/login`; el frontend guarda token en `localS
 
 | Escenario PDF | Estado en repo | Nota honesta para la exposición |
 |---------------|----------------|----------------------------------|
-| Failover storage &lt; 5 s | **Stub** | `storage-service` expone `/health` y endpoints placeholder; no hay réplica ni PostgreSQL aún |
-| Registro clínico sin error | **Sí (demo)** | Datos en memoria (`Map`) en `clinical-history`; al reiniciar el servicio se pierden |
+| **Esc.3** Failover storage &lt; 5 s | **Stub** | `storage-service` — comentarios `Escenario 3`; `/health` + detección en admin (`checkServiceHealth`). Sin nodo backup automático aún. |
+| **Esc.4** Registro clínico sin error | **Sí (demo)** | `clinical-history` — `validateRecordBody`, `POST .../records`, `ClinicalRecordFormPage` (confirmación). Memoria en `Map`; al reiniciar se pierden. |
+
+En código busca **`Escenario 3`** o **`Escenario 4`** (mismo estilo que Seguridad esc. 1 y 2).
 
 Persistencia actual: **memoria en proceso** (no PostgreSQL del PDF). Mencionar que el diseño apunta a *database per service* en fase 3.
 

@@ -18,9 +18,14 @@ export function ClinicalRecordFormPage() {
   const [record, setRecord] = useState<ClinicalRecord | null>(null);
   const [error, setError] = useState('');
 
+  /*
+   * Escenario 2 (pantalla) — Al abrir el formulario de consulta.
+   * Si no es veterinario ni admin, lo saca antes de mostrar campos de edición.
+   * (El API también bloquea en POST/PUT si intentan forzar la petición.)
+   */
   useEffect(() => {
     if (!hasRole('VETERINARIO', 'ADMIN')) {
-      navigate('/sin-permiso');
+      navigate('/sin-permiso'); // aviso visual: no tiene permiso para editar historial
     }
   }, [hasRole, navigate]);
 
@@ -32,6 +37,11 @@ export function ClinicalRecordFormPage() {
       .catch((err) => setError(getAuthErrorMessage(err)));
   }, [isEdit, petId, recordId]);
 
+  /*
+   * Escenario 4 (pantalla) — El veterinario guarda la consulta.
+   * Paso 1: clinicalApi.createRecord → API valida y guarda.
+   * Paso 2: showSuccess → confirma al usuario que quedó registrada (respuesta del PDF).
+   */
   async function handleSubmit(data: ClinicalRecordInput) {
     if (!petId) return;
     if (isEdit && recordId) {

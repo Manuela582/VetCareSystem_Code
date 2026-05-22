@@ -28,6 +28,7 @@ export function getRecord(petId: string, recordId: string) {
   );
 }
 
+// Escenario 4 — Envía la nueva consulta al servicio clinical-history (POST).
 export function createRecord(petId: string, data: ClinicalRecordInput) {
   return apiRequest<CreateRecordResponse>(`/patients/${petId}/records`, {
     method: 'POST',
