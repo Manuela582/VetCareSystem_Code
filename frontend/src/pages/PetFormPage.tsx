@@ -9,7 +9,6 @@ import type { Pet, PetInput } from '../types/pet';
 
 export function PetFormPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const { hasRole } = useAuth();
   const isEdit = Boolean(id);
 

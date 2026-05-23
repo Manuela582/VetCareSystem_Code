@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { AppLayout } from '../components/layout/AppLayout';
 import { useAuth } from '../context/AuthContext';
 import * as petsApi from '../services/petsApi';
@@ -28,8 +28,6 @@ const TIMES: Record<ServiceType, string> = {
 export function AppointmentRequestPage() {
   const { user } = useAuth();
   const { showSuccess } = useNotifications();
-  const navigate = useNavigate();
-
   const [step, setStep] = useState(1);
   const [serviceType, setServiceType] = useState<ServiceType>('home');
   const [pets, setPets] = useState<Pet[]>([]);

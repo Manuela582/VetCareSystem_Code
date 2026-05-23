@@ -99,7 +99,7 @@ export function ProfilePage() {
   const [editOpen, setEditOpen] = useState(false);
   const [passOpen, setPassOpen] = useState(false);
   const [fullName, setFullName] = useState(user?.fullName || '');
-  const [phone, setPhone] = useState(user?.phone || '');
+  const [_phone, setPhone] = useState(user?.phone || '');
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [saving, setSaving] = useState(false);
