@@ -60,7 +60,7 @@ app.get(`${API_PREFIX}/dashboard`, authMiddleware, async (req, res) => {
 
   let recentConsultations = [];
   let totalRecords = 0;
-  for (const pet of pets.slice(0, 5)) {
+  for (const pet of pets) {
     const rec = await fetchJson(
       `http://localhost:3002/api/v1/patients/${pet.id}/records`,
       auth,
@@ -68,7 +68,7 @@ app.get(`${API_PREFIX}/dashboard`, authMiddleware, async (req, res) => {
     if (rec?.records) {
       totalRecords += rec.records.length;
       recentConsultations.push(
-        ...rec.records.slice(0, 2).map((r) => ({
+        ...rec.records.map((r) => ({
           id: r.id,
           petId: pet.id,
           petName: pet.name,
@@ -80,10 +80,10 @@ app.get(`${API_PREFIX}/dashboard`, authMiddleware, async (req, res) => {
     }
   }
   recentConsultations.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  recentConsultations = recentConsultations.slice(0, 6);
+  recentConsultations = recentConsultations.slice(0, 8);
 
   const chartByStatus = { ACTIVA: 0, SEGUIMIENTO: 0, CERRADA: 0, URGENTE: 0 };
-  for (const pet of pets.slice(0, 5)) {
+  for (const pet of pets) {
     const rec = await fetchJson(
       `http://localhost:3002/api/v1/patients/${pet.id}/records`,
       auth,

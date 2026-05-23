@@ -152,6 +152,30 @@ async function createAutoReminders(req, pet, record) {
 
   const created = [];
   const recordDate = new Date(record.date);
+  const consultDue = record.date.slice(0, 10);
+
+  // Cita médica visible en paneles (vet/dueño) y en /recordatorios
+  const appointmentReminder = await postReminder(auth, {
+    petId: pet.id,
+    petName: pet.name,
+    type: 'CONTROL',
+    title: `Cita médica — ${String(record.diagnosis).slice(0, 60)}`,
+    dueDate: consultDue,
+    message:
+      record.treatment?.trim() ||
+      record.observations?.trim() ||
+      'Consulta registrada en el historial clínico',
+  });
+  if (appointmentReminder) {
+    created.push(appointmentReminder);
+    await notifyOwner(
+      auth,
+      pet.ownerId,
+      `Cita médica — ${pet.name}`,
+      `${appointmentReminder.title} · ${consultDue}`,
+      'IN_APP',
+    );
+  }
 
   if (record.vaccines?.length > 0) {
     const due = new Date(recordDate);

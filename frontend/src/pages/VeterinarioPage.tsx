@@ -30,13 +30,32 @@ export function VeterinarioPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([dashboardApi.getMainDashboard(), petsApi.listPets()])
-      .then(([dash, petsRes]) => {
-        setData(dash);
-        setRecentPets(petsRes.pets.slice(0, 5));
-      })
-      .catch((e) => setError(getAuthErrorMessage(e)))
-      .finally(() => setLoading(false));
+    let cancelled = false;
+
+    function loadDashboard() {
+      setLoading(true);
+      setError('');
+      Promise.all([dashboardApi.getMainDashboard(), petsApi.listPets()])
+        .then(([dash, petsRes]) => {
+          if (cancelled) return;
+          setData(dash);
+          setRecentPets(petsRes.pets.slice(0, 5));
+        })
+        .catch((e) => {
+          if (!cancelled) setError(getAuthErrorMessage(e));
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    }
+
+    loadDashboard();
+    const onFocus = () => loadDashboard();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', onFocus);
+    };
   }, []);
 
   const pendingControls =

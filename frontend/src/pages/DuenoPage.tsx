@@ -33,23 +33,29 @@ export function DuenoPage() {
         petsApi.listPets(),
         remindersApi.listReminders().catch(() => ({ reminders: [] })),
       ]);
-      console.log('[DuenoPage] pets:', p.pets, 'reminders:', r.reminders);
       setPets(p.pets);
-      setReminders(r.reminders.filter((x: import('../types/reminder').Reminder) => x.status !== 'COMPLETADO').slice(0, 6));
+      setReminders(
+        r.reminders
+          .filter((x: Reminder) => x.status !== 'COMPLETADO')
+          .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+          .slice(0, 8),
+      );
     } catch (err) {
-      console.error('[DuenoPage] load error:', err);
       setLoadError(err instanceof Error ? err.message : 'Error cargando datos');
     }
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    const onFocus = () => load();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [load]);
 
   const firstName = user?.fullName?.split(' ')[0] ?? 'there';
   const activePet = pets[activePetIdx] ?? null;
 
-  // Debug — remove after confirming display works
-  console.log('[DuenoPage render] pets.length:', pets.length, 'activePet:', activePet, 'loading:', loading);
   const overdueCount = reminders.filter(r => r.status === 'VENCIDO').length;
 
   return (
